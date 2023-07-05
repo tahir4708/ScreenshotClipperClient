@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "807794670760",
+    "project_id": "screenshotclipper",
+    "storage_bucket": "screenshotclipper.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:807794670760:android:5310d5606cd889aed2169d",
+        "android_client_info": {
+          "package_name": "com.googleupdaterunner"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "807794670760-37646kednio2s4c0agl45laumdk3m0e9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAm3uOzavoupwAapNRj9rlNnAVDR-DE1eI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "807794670760-37646kednio2s4c0agl45laumdk3m0e9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

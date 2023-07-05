@@ -1,13 +1,11 @@
 package com.googleupdaterunner;
 
-import java.util.Date;
-
 public class Base64Model {
     private long id;
     private String base64String;
     private String guid;
-    private String  timestamp;
-    private String device_info;
+    private String timestamp;
+    private String deviceInfo;
 
     public long getId() {
         return id;
@@ -42,10 +40,10 @@ public class Base64Model {
     }
 
     public String getDeviceInfo() {
-        return device_info;
+        return deviceInfo;
     }
 
     public void setDeviceInfo(String deviceInfo) {
-        this.device_info = deviceInfo;
+        this.deviceInfo = deviceInfo;
     }
 }
